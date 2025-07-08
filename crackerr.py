@@ -4,8 +4,18 @@ import string
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
+import sys
+import os
 
 stop_flag = False
+
+def resource_path(relative_path):
+    """Obtenir le chemin absolu pour les fichiers, compatible PyInstaller"""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 def hash_word(word, algorithm='md5'):
     word = word.encode()
@@ -16,11 +26,11 @@ def hash_word(word, algorithm='md5'):
     elif algorithm == 'sha256':
         return hashlib.sha256(word).hexdigest()
     else:
-        raise ValueError(f"Algorithme non supporté : {algorithm}")
+        raise ValueError(f"Algorithm not supported : {algorithm}")
 
 def crack_with_dict(target_hash, algorithm='md5', wordlist_path="wordlist.txt", update_callback=None):
     try:
-        with open(wordlist_path, "r") as f:
+        with open(resource_path(wordlist_path), "r") as f:
             for line in f:
                 if stop_flag:
                     return None
@@ -30,7 +40,7 @@ def crack_with_dict(target_hash, algorithm='md5', wordlist_path="wordlist.txt", 
                 if hash_word(word, algorithm) == target_hash:
                     return word
     except FileNotFoundError:
-        return f"[!] Fichier introuvable : {wordlist_path}"
+        return f"[!] File could not be found : {wordlist_path}"
     return None
 
 def crack_with_bruteforce(target_hash, algorithm='md5', max_length=4, use_specials=False, progress_callback=None, update_callback=None):
@@ -73,7 +83,7 @@ def launch_cracking():
     method = method_choice.get()
 
     if not target_hash:
-        messagebox.showwarning("Erreur", "Veuillez entrer un hash.")
+        messagebox.showwarning("Error", "Please enter Hash.")
         return
 
     def update_progress(percent):
@@ -98,13 +108,13 @@ def launch_cracking():
         result = crack_with_bruteforce(target_hash, algorithm, max_len, use_specials, update_progress, update_tried_words)
 
     if stop_flag:
-        result_label.config(text="[!] Attaque stoppée par l'utilisateur.", foreground="orange")
+        result_label.config(text="[!] Attack stopped by user.", foreground="orange")
         progress_bar['value'] = 0
     elif result:
-        result_label.config(text=f"[✔] Mot de passe trouvé : {result}", foreground="green")
+        result_label.config(text=f"[✔] Password found : {result}", foreground="green")
         progress_bar['value'] = 100
     else:
-        result_label.config(text="[✘] Mot de passe introuvable.", foreground="red")
+        result_label.config(text="[✘] Password not found.", foreground="red")
         progress_bar['value'] = 100
 
 def stop_cracking():
@@ -131,30 +141,30 @@ padding_opts = {'padx': 10, 'pady': 5}
 frame = ttk.Frame(root)
 frame.pack(fill=tk.BOTH, expand=True, **padding_opts)
 
-ttk.Label(frame, text="Hash à cracker :").grid(row=0, column=0, sticky='w')
+ttk.Label(frame, text="Hash to crack :").grid(row=0, column=0, sticky='w')
 hash_entry = ttk.Entry(frame, width=45)
 hash_entry.grid(row=0, column=1, sticky='ew')
 
-ttk.Label(frame, text="Algorithme :").grid(row=1, column=0, sticky='w')
+ttk.Label(frame, text="Algorithm :").grid(row=1, column=0, sticky='w')
 algo_choice = ttk.Combobox(frame, values=["md5", "sha1", "sha256"], state="readonly", width=43)
 algo_choice.set("md5")
 algo_choice.grid(row=1, column=1, sticky='ew')
 
-ttk.Label(frame, text="Méthode :").grid(row=2, column=0, sticky='w')
-method_choice = ttk.Combobox(frame, values=["dico", "brute"], state="readonly", width=43)
+ttk.Label(frame, text="Method :").grid(row=2, column=0, sticky='w')
+method_choice = ttk.Combobox(frame, values=["dico", "brut"], state="readonly", width=43)
 method_choice.set("dico")
 method_choice.grid(row=2, column=1, sticky='ew')
 
-ttk.Label(frame, text="Longueur max (brute force) :").grid(row=3, column=0, sticky='w')
+ttk.Label(frame, text="Max length (brut force) :").grid(row=3, column=0, sticky='w')
 length_entry = ttk.Entry(frame, width=10)
 length_entry.insert(0, "4")
 length_entry.grid(row=3, column=1, sticky='w')
 
 special_var = tk.BooleanVar()
-special_cb = ttk.Checkbutton(frame, text="Inclure caractères spéciaux", variable=special_var)
+special_cb = ttk.Checkbutton(frame, text="Include special char", variable=special_var)
 special_cb.grid(row=4, column=1, sticky='w')
 
-btn_start = ttk.Button(frame, text="Lancer l'attaque", command=start_cracking_thread)
+btn_start = ttk.Button(frame, text="Start", command=start_cracking_thread)
 btn_start.grid(row=5, column=0, sticky='ew', pady=10, columnspan=2)
 
 btn_stop = ttk.Button(frame, text="Stop", command=stop_cracking)
@@ -163,7 +173,7 @@ btn_stop.grid(row=6, column=0, sticky='ew', pady=(0, 10), columnspan=2)
 progress_bar = ttk.Progressbar(frame, length=450, mode='determinate')
 progress_bar.grid(row=7, column=0, columnspan=2, pady=10)
 
-ttk.Label(frame, text="Combinaisons testées :").grid(row=8, column=0, sticky='w', pady=(10,0), columnspan=2)
+ttk.Label(frame, text="--").grid(row=8, column=0, sticky='w', pady=(10,0), columnspan=2)
 
 tried_words_text = tk.Text(frame, height=15, width=58, state='disabled', bg='#f0f0f0', font=("Consolas", 10))
 tried_words_text.grid(row=9, column=0, columnspan=2, sticky='nsew')
@@ -171,7 +181,6 @@ tried_words_text.grid(row=9, column=0, columnspan=2, sticky='nsew')
 result_label = ttk.Label(frame, text="", foreground="green", font=("Helvetica", 14))
 result_label.grid(row=10, column=0, columnspan=2, pady=15)
 
-# Config grid weights pour que le text prenne de la place si resize (optionnel)
 frame.columnconfigure(1, weight=1)
 frame.rowconfigure(9, weight=1)
 
